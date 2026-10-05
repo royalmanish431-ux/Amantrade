@@ -1,0 +1,6 @@
+{
+  "name": "Sharma Confectionery",
+  "description": "Sharma Confectionery - Traditional handcrafted Indian sweets, fresh mithai, hot snacks & fast food delivered straight to your door.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
