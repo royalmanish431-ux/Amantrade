@@ -51,25 +51,11 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </button>
 
-        {/* Action Buttons: Sheet 2 & By Owner */}
+        {/* Action Button: By Owner */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={onOpenSheetsPortal || onOpenOwnerPortal}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-400/50 text-emerald-200 text-[11px] font-bold shadow-xs hover:bg-emerald-900 active:scale-95 transition-all cursor-pointer"
-            title="Aman Traders Sheet 2 (Column E) Live Stock"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Sheet 2</span>
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isGoogleConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-              }`}
-            ></span>
-          </button>
-
-          <button
             onClick={onOpenOwnerPortal}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-stone-900 text-xs font-semibold shadow-sm hover:bg-stone-100 active:scale-95 transition-all border border-stone-200"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-stone-900 text-xs font-semibold shadow-sm hover:bg-stone-100 active:scale-95 transition-all border border-stone-200 cursor-pointer"
           >
             <Lock className="w-3.5 h-3.5 text-stone-700" />
             <span>By owner</span>

@@ -1,7 +1,7 @@
 import React from 'react';
+import { Store, Package } from 'lucide-react';
 import { CATEGORIES } from '../data/dishes';
 import { CategoryId } from '../types';
-import { AppImage } from './AppImage';
 
 interface CategorySliderProps {
   activeCategory: CategoryId;
@@ -16,42 +16,31 @@ export const CategorySlider: React.FC<CategorySliderProps> = ({
   onSeeAllClick,
   dishCounts,
 }) => {
-  const getCategoryVisualType = (catId: CategoryId) => {
-    switch (catId) {
-      case 'confectionery':
-        return 'colddrink';
-      case 'bakery':
-        return 'chocolate';
-      default:
-        return 'colddrink';
-    }
-  };
-
   return (
     <div className="py-2.5 px-4">
       {/* Section Header */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-bold text-stone-500 tracking-wider uppercase">
-          Eat What Makes You Happy
+          Store Categories
         </h3>
         <button
           onClick={onSeeAllClick}
           className={`text-xs font-semibold cursor-pointer transition-colors ${
             activeCategory === 'all'
               ? 'text-stone-400 font-normal'
-              : 'text-red-600 hover:text-red-700 underline font-bold'
+              : 'text-emerald-700 hover:text-emerald-800 underline font-bold'
           }`}
         >
           {activeCategory === 'all' ? 'Showing All' : 'Show All'}
         </button>
       </div>
 
-      {/* Exactly 2 Categories: Confectionery & Bakery */}
+      {/* Categories */}
       <div className="grid grid-cols-2 gap-3">
         {CATEGORIES.map((category) => {
           const isActive = activeCategory === category.id;
-          const visualType = getCategoryVisualType(category.id);
           const count = dishCounts ? dishCounts[category.id as 'confectionery' | 'bakery'] : undefined;
+          const Icon = category.id === 'confectionery' ? Store : Package;
 
           return (
             <button
@@ -59,32 +48,26 @@ export const CategorySlider: React.FC<CategorySliderProps> = ({
               onClick={() => onSelectCategory(category.id)}
               className={`flex items-center gap-3 p-3 rounded-2xl border transition-all duration-200 cursor-pointer text-left ${
                 isActive
-                  ? 'bg-red-50/80 border-red-500 shadow-sm ring-1 ring-red-500/50'
+                  ? 'bg-emerald-50/80 border-emerald-500 shadow-sm ring-1 ring-emerald-500/50'
                   : 'bg-white border-stone-200/90 hover:bg-stone-50/80 shadow-2xs hover:border-stone-300'
               }`}
             >
-              {/* Circular Avatar */}
+              {/* Circular Icon Avatar */}
               <div
-                className={`relative w-14 h-14 rounded-full p-0.5 shrink-0 transition-transform duration-200 ${
-                  isActive ? 'ring-2 ring-red-600 ring-offset-2 scale-105' : 'border border-stone-200'
+                className={`w-12 h-12 rounded-2xl shrink-0 flex items-center justify-center transition-transform duration-200 ${
+                  isActive
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 border border-stone-200'
                 }`}
               >
-                <div className="w-full h-full rounded-full overflow-hidden shadow-xs bg-stone-100">
-                  <AppImage
-                    src={category.imageUrl}
-                    alt={category.name}
-                    fallbackFoodType={visualType}
-                    className="w-full h-full rounded-full"
-                    imgClassName="w-full h-full object-cover rounded-full"
-                  />
-                </div>
+                <Icon className="w-5 h-5" />
               </div>
 
               {/* Category Info */}
               <div className="min-w-0 flex-1">
                 <span
                   className={`text-sm font-bold block truncate leading-tight ${
-                    isActive ? 'text-red-700 font-extrabold' : 'text-stone-900'
+                    isActive ? 'text-emerald-800 font-extrabold' : 'text-stone-900'
                   }`}
                 >
                   {category.name}
@@ -93,12 +76,8 @@ export const CategorySlider: React.FC<CategorySliderProps> = ({
                   {category.hindiName}
                 </span>
                 {count !== undefined && (
-                  <span
-                    className={`inline-block text-[10px] font-semibold mt-1 px-1.5 py-0.2 rounded-md ${
-                      isActive ? 'bg-red-200/60 text-red-800' : 'bg-stone-100 text-stone-600'
-                    }`}
-                  >
-                    {count} items
+                  <span className="text-[10px] text-stone-400 block mt-0.5">
+                    {count} item{count === 1 ? '' : 's'}
                   </span>
                 )}
               </div>

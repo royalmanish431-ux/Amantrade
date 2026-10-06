@@ -21,14 +21,14 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Order, UserProfile } from '../types';
-import { loginUser, registerUser, updateUserProfile } from '../services/userService';
+import { loginUser, registerUser, updateUserProfile, getCurrentUser, setCurrentUser } from '../services/userService';
 
 interface ProfileViewProps {
   orders: Order[];
-  currentUser: UserProfile | null;
-  onUserLogin: (user: UserProfile) => void;
-  onUserLogout: () => void;
-  onUpdateProfile: (user: UserProfile) => void;
+  currentUser?: UserProfile | null;
+  onUserLogin?: (user: UserProfile) => void;
+  onUserLogout?: () => void;
+  onUpdateProfile?: (user: UserProfile) => void;
   onOpenOwnerPortal: () => void;
   onOpenAddressModal: () => void;
   currentAddress: string;
@@ -37,7 +37,7 @@ interface ProfileViewProps {
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
   orders,
-  currentUser,
+  currentUser: propUser,
   onUserLogin,
   onUserLogout,
   onUpdateProfile,
@@ -46,6 +46,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   currentAddress,
   onReorder,
 }) => {
+  const [internalUser, setInternalUser] = useState<UserProfile | null>(() => getCurrentUser());
+  const currentUser = propUser !== undefined ? propUser : internalUser;
+
   // Auth Form State (Login / Sign Up)
   const [authTab, setAuthTab] = useState<'login' | 'signup'>('login');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -60,7 +63,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [signupName, setSignupName] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
-  const [signupAddress, setSignupAddress] = useState(currentAddress || '');
+  const [signupAddress, setSignupAddress] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
 
@@ -81,7 +84,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       setEditPhone(currentUser.phone);
       setEditEmail(currentUser.email || '');
       setEditAddress(currentUser.address || currentAddress || '');
-      setEditPassword(currentUser.password);
+      setEditPassword(currentUser.password || '');
     }
   }, [currentUser, currentAddress]);
 
@@ -118,7 +121,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
 
     setAuthSuccess('Login successful! Welcome back.');
-    onUserLogin(result.user);
+    if (onUserLogin) onUserLogin(result.user);
+    setInternalUser(result.user);
   };
 
   // Handle Sign Up submission
@@ -168,14 +172,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
 
     setAuthSuccess('Account created successfully! Logged in.');
-    onUserLogin(result.user);
-  };
-
-  // Handle Quick Demo Fill
-  const handleQuickDemoFill = () => {
-    setLoginPhone('9876543210');
-    setLoginPassword('12345');
-    setAuthError(null);
+    if (onUserLogin) onUserLogin(result.user);
+    setInternalUser(result.user);
   };
 
   // Handle Edit Profile Save
@@ -216,7 +214,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
 
-    onUpdateProfile(res.user);
+    if (onUpdateProfile) onUpdateProfile(res.user);
+    setInternalUser(res.user);
     setEditFeedback({ type: 'success', message: 'Profile updated successfully!' });
     setTimeout(() => {
       setIsEditing(false);
@@ -307,7 +306,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   maxLength={10}
                   value={loginPhone}
                   onChange={(e) => setLoginPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="Enter 10-digit number (e.g. 9876543210)"
+                  placeholder="Enter 10-digit mobile number"
                   className="w-full pl-12 pr-3 py-2 text-xs border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-stone-50/50"
                   required
                 />
@@ -329,7 +328,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   inputMode="numeric"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="••••• (e.g. 12345)"
+                  placeholder="••••• (5-digit password)"
                   className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 tracking-widest font-mono bg-stone-50/50"
                   required
                 />
@@ -354,18 +353,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span>Login with Contact Number</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
-
-            {/* Quick Demo Helper */}
-            <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
-              <span>Quick test?</span>
-              <button
-                type="button"
-                onClick={handleQuickDemoFill}
-                className="text-red-600 hover:underline font-bold cursor-pointer"
-              >
-                Auto-fill Demo (9876543210 / 12345)
-              </button>
-            </div>
           </form>
         )}
 
@@ -385,7 +372,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 type="text"
                 value={signupName}
                 onChange={(e) => setSignupName(e.target.value)}
-                placeholder="e.g. Manish Sharma"
+                placeholder="Enter your full name"
                 className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-stone-50/50"
                 required
               />
@@ -406,7 +393,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   maxLength={10}
                   value={signupPhone}
                   onChange={(e) => setSignupPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="10-digit mobile number"
+                  placeholder="Enter 10-digit mobile number"
                   className="w-full pl-12 pr-3 py-2 text-xs border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-stone-50/50"
                   required
                 />
@@ -423,7 +410,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 type="email"
                 value={signupEmail}
                 onChange={(e) => setSignupEmail(e.target.value)}
-                placeholder="e.g. manish@example.com"
+                placeholder="name@example.com (optional)"
                 className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-stone-50/50"
               />
             </div>
@@ -460,7 +447,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   inputMode="numeric"
                   value={signupPassword}
                   onChange={(e) => setSignupPassword(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="e.g. 12345 (exactly 5 digits)"
+                  placeholder="Enter 5-digit password"
                   className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 tracking-widest font-mono bg-stone-50/50"
                   required
                 />
@@ -545,7 +532,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         {/* Logout Button */}
         <button
-          onClick={onUserLogout}
+          onClick={() => {
+            setCurrentUser(null);
+            setInternalUser(null);
+            if (onUserLogout) onUserLogout();
+          }}
           className="p-2 rounded-xl bg-stone-100 hover:bg-red-50 text-stone-600 hover:text-red-600 border border-stone-200 transition-colors shadow-2xs flex flex-col items-center gap-0.5 cursor-pointer"
           title="Logout"
         >

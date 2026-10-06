@@ -1,34 +1,9 @@
 import React, { useState } from 'react';
-import {
-  X,
-  Check,
-  Store,
-  Package,
-  PlusCircle,
-  TrendingUp,
-  Power,
-  ToggleLeft,
-  ToggleRight,
-  FileSpreadsheet,
-  ExternalLink,
-  RefreshCw,
-  LogOut,
-  AlertCircle,
-} from 'lucide-react';
-import { Dish, Order, CategoryId } from '../types';
+import { X, Check, Store, Package, PlusCircle, TrendingUp, Power, ToggleLeft, ToggleRight, Sheet, RefreshCw, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Dish, Order, CategoryId, SheetRowItem } from '../types';
 import { CATEGORIES } from '../data/dishes';
 import { AppImage } from './AppImage';
-import { GoogleSignInButton } from './GoogleSignInButton';
-import {
-  SheetRowData,
-  SPREADSHEET_URL,
-  DEFAULT_SHEET_NAME,
-  AMAN_TRADE_SPREADSHEET_URL,
-  STOCK_SPREADSHEET_URL,
-  AMAN_TRADE_SHEET_NAME,
-} from '../services/googleSheetsService';
-import { getAppsScriptUrl, setAppsScriptUrl } from '../services/appsScriptService';
-import { User } from 'firebase/auth';
+import { SPREADSHEET_ID, SPREADSHEET_URL, SHEET_COLUMNS_INFO, APPS_SCRIPT_URL, submitOrderToAppsScript } from '../services/googleSheetsService';
 
 interface OwnerPortalModalProps {
   isOpen: boolean;
@@ -41,20 +16,11 @@ interface OwnerPortalModalProps {
   onUpdateOrderStatus: (orderId: string, newStatus: Order['status']) => void;
   isStoreOpen: boolean;
   onToggleStoreStatus: () => void;
-  // Google Sheets Props
-  googleUser: User | null;
-  onGoogleSignIn: () => void;
-  onGoogleSignOut: () => void;
-  isGoogleLoading: boolean;
-  sheetRows: SheetRowData[];
-  onSyncSheetStock: () => Promise<void>;
-  onInitializeSheet2: () => Promise<void>;
-  onFetchAmanTradersMenu: () => Promise<void>;
-  onSyncAppsScript?: () => void;
-  isSyncingSheets: boolean;
-  isFetchingMenu?: boolean;
-  lastSyncTime: string | null;
-  syncFeedback?: { type: 'success' | 'error'; message: string } | null;
+  sheetRows?: SheetRowItem[];
+  onRefreshSheet?: () => void;
+  isSyncingSheet?: boolean;
+  onUpdateSheetStock?: (billNo: string, newStock: number) => void;
+  sheetLastSynced?: string;
 }
 
 export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
@@ -68,25 +34,45 @@ export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
   onUpdateOrderStatus,
   isStoreOpen,
   onToggleStoreStatus,
-  googleUser,
-  onGoogleSignIn,
-  onGoogleSignOut,
-  isGoogleLoading,
-  sheetRows,
-  onSyncSheetStock,
-  onInitializeSheet2,
-  onFetchAmanTradersMenu,
-  onSyncAppsScript,
-  isSyncingSheets,
-  isFetchingMenu = false,
-  lastSyncTime,
-  syncFeedback,
+  sheetRows = [],
+  onRefreshSheet,
+  isSyncingSheet = false,
+  onUpdateSheetStock,
+  sheetLastSynced,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'menu' | 'sheets' | 'add_dish' | 'stats'>('orders');
-  const [whatsappNumber, setWhatsappNumber] = useState(
-    () => localStorage.getItem('aman_traders_whatsapp_number') || '919876543210'
-  );
-  const [appsScriptUrlInput, setAppsScriptUrlInput] = useState(() => getAppsScriptUrl());
+  const [activeTab, setActiveTab] = useState<'orders' | 'menu' | 'add_dish' | 'stats' | 'sheet'>('sheet');
+  const [isTestingScript, setIsTestingScript] = useState(false);
+  const [scriptTestResult, setScriptTestResult] = useState<string | null>(null);
+
+  const handleTestScript = async () => {
+    if (sheetRows.length === 0) return;
+    setIsTestingScript(true);
+    setScriptTestResult(null);
+    try {
+      const firstRow = sheetRows[0];
+      const res = await submitOrderToAppsScript({
+        items: [
+          {
+            dish: {
+              id: firstRow.billNo,
+              billNo: firstRow.billNo,
+              name: firstRow.itemName,
+              price: firstRow.price,
+              discountVal: firstRow.discount,
+            } as any,
+            quantity: 1,
+          },
+        ],
+        grandTotal: firstRow.price,
+      });
+      setScriptTestResult(res.message);
+      if (onRefreshSheet) onRefreshSheet();
+    } catch (e: any) {
+      setScriptTestResult(e?.message || 'Test failed');
+    } finally {
+      setIsTestingScript(false);
+    }
+  };
 
   // New Dish Form State
   const [newName, setNewName] = useState('');
@@ -182,7 +168,24 @@ export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="grid grid-cols-5 bg-stone-100 border-b border-stone-200 text-xs font-bold text-stone-600">
+        <div className="grid grid-cols-5 bg-stone-100 border-b border-stone-200 text-[11px] font-bold text-stone-600">
+          <button
+            onClick={() => setActiveTab('sheet')}
+            className={`py-2.5 flex items-center justify-center gap-1 transition-all border-b-2 cursor-pointer ${
+              activeTab === 'sheet'
+                ? 'border-emerald-600 text-emerald-700 bg-white'
+                : 'border-transparent hover:text-stone-900'
+            }`}
+          >
+            <Sheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Google Sheet</span>
+            {sheetRows.length > 0 && (
+              <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[9px] flex items-center justify-center font-bold">
+                {sheetRows.length}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => setActiveTab('orders')}
             className={`py-2.5 flex items-center justify-center gap-1 transition-all border-b-2 cursor-pointer ${
@@ -191,7 +194,7 @@ export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
                 : 'border-transparent hover:text-stone-900'
             }`}
           >
-            <span>Orders</span>
+            <span>Live Orders</span>
             {orders.length > 0 && (
               <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] flex items-center justify-center">
                 {orders.length}
@@ -212,18 +215,6 @@ export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('sheets')}
-            className={`py-2.5 flex items-center justify-center gap-1 transition-all border-b-2 cursor-pointer ${
-              activeTab === 'sheets'
-                ? 'border-emerald-600 text-emerald-700 bg-white'
-                : 'border-transparent hover:text-stone-900'
-            }`}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Sheet 2</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('add_dish')}
             className={`py-2.5 flex items-center justify-center gap-1 transition-all border-b-2 cursor-pointer ${
               activeTab === 'add_dish'
@@ -232,7 +223,7 @@ export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
             }`}
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>Add</span>
+            <span>Add Item</span>
           </button>
 
           <button
@@ -250,6 +241,239 @@ export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
 
         {/* Tab Body */}
         <div className="flex-1 overflow-y-auto p-4 bg-stone-50">
+          {/* TAB 0: GOOGLE SHEET INTEGRATION */}
+          {activeTab === 'sheet' && (
+            <div className="space-y-4">
+              {/* Sheet Connection Status Card */}
+              <div className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                      <Sheet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-stone-900">Google Sheet Connected</h4>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                          Live 14 Columns
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-500 font-mono">
+                        ID: {SPREADSHEET_ID}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {onRefreshSheet && (
+                      <button
+                        onClick={onRefreshSheet}
+                        disabled={isSyncingSheet}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSheet ? 'animate-spin' : ''}`} />
+                        <span>{isSyncingSheet ? 'Syncing...' : 'Sync Now'}</span>
+                      </button>
+                    )}
+
+                    <a
+                      href={SPREADSHEET_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                    >
+                      <span>Open Sheet</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+
+                {sheetLastSynced && (
+                  <p className="text-[11px] text-stone-400">
+                    Last synchronized with Google Cloud: <strong>{sheetLastSynced}</strong> · Found {sheetRows.length} active row(s).
+                  </p>
+                )}
+              </div>
+
+              {/* 14 Columns Mapping Reference */}
+              <div className="p-3.5 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-2">
+                <h5 className="text-xs font-bold text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>17 Columns Connected & Mapped (Col A to Col Q)</span>
+                </h5>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  {SHEET_COLUMNS_INFO.map((col) => (
+                    <div key={col.col} className="p-2 rounded-xl bg-stone-50 border border-stone-200/70">
+                      <div className="flex items-center gap-1 font-bold text-stone-900">
+                        <span className="w-4 h-4 rounded bg-stone-200 text-stone-700 text-[10px] flex items-center justify-center font-mono">
+                          {col.col}
+                        </span>
+                        <span className="font-mono text-emerald-700">{col.name}</span>
+                      </div>
+                      <p className="text-[10px] text-stone-500 mt-0.5 truncate">{col.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Google Apps Script 2-Way Sync Card */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                      <h5 className="text-xs font-bold text-slate-900">
+                        Apps Script 2-Way Live Sync (Stock Deduct & Amount Add)
+                      </h5>
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-mono mt-0.5 truncate max-w-sm sm:max-w-md">
+                      URL: {APPS_SCRIPT_URL}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleTestScript}
+                    disabled={isTestingScript || sheetRows.length === 0}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isTestingScript ? 'Testing Sync...' : 'Test Deduct & Add Amount'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="p-2 rounded-xl bg-white border border-emerald-200">
+                    <span className="font-bold text-emerald-800 block">Col E (stock)</span>
+                    <span className="text-[10px] text-slate-500">Auto-deducted on order</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-emerald-200">
+                    <span className="font-bold text-emerald-800 block">Col G (Date)</span>
+                    <span className="text-[10px] text-slate-500">Auto-stamped with date</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-emerald-200">
+                    <span className="font-bold text-emerald-800 block">Col H (coustomtotal)</span>
+                    <span className="text-[10px] text-slate-500">Order amount added</span>
+                  </div>
+                </div>
+
+                {scriptTestResult && (
+                  <div className="p-2 rounded-xl bg-emerald-100/80 border border-emerald-300 text-xs font-semibold text-emerald-900 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>{scriptTestResult}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Live Rows Table */}
+              <div className="p-3.5 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-bold text-stone-800">
+                    Live Sheet Rows ({sheetRows.length})
+                  </h5>
+                  <span className="text-[10px] text-stone-400">
+                    Col E stock is synced with live order deductions
+                  </span>
+                </div>
+
+                {sheetRows.length === 0 ? (
+                  <div className="py-8 text-center text-stone-400 text-xs">
+                    No rows found or currently syncing from Google Sheet...
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-stone-200 rounded-xl">
+                    <table className="w-full text-left text-xs divide-y divide-stone-200">
+                      <thead className="bg-stone-100 text-[10px] font-bold text-stone-600 uppercase tracking-wider">
+                        <tr>
+                          <th className="p-2">Row</th>
+                          <th className="p-2">A: Bill No</th>
+                          <th className="p-2">B: Item Name</th>
+                          <th className="p-2">C: Price</th>
+                          <th className="p-2">D: Qty</th>
+                          <th className="p-2 bg-emerald-50 text-emerald-800">E: Stock</th>
+                          <th className="p-2">F: GST</th>
+                          <th className="p-2">G: Date</th>
+                          <th className="p-2">H: Custom Total</th>
+                          <th className="p-2">I: Unit</th>
+                          <th className="p-2">J: Discount</th>
+                          <th className="p-2">K: YouTube</th>
+                          <th className="p-2">L: Instagram</th>
+                          <th className="p-2">M: Facebook</th>
+                          <th className="p-2">N: Offers</th>
+                          <th className="p-2">O: Image</th>
+                          <th className="p-2">P: Delivery Val</th>
+                          <th className="p-2">Q: Delivery Desc</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100 bg-white">
+                        {sheetRows.map((row) => (
+                          <tr key={row.billNo} className="hover:bg-stone-50 transition-colors">
+                            <td className="p-2 font-mono text-[10px] text-stone-400">#{row.rowIndex}</td>
+                            <td className="p-2 font-mono font-bold text-stone-900">{row.billNo}</td>
+                            <td className="p-2 font-bold text-stone-900">{row.itemName}</td>
+                            <td className="p-2 text-emerald-700 font-bold">₹{row.price}</td>
+                            <td className="p-2 text-stone-600">{row.qty}</td>
+                            <td className="p-2 bg-emerald-50/50">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  defaultValue={row.stock}
+                                  onBlur={(e) => {
+                                    const val = Number(e.target.value);
+                                    if (!isNaN(val) && onUpdateSheetStock) {
+                                      onUpdateSheetStock(row.billNo, val);
+                                    }
+                                  }}
+                                  className="w-14 px-1.5 py-0.5 text-xs font-bold text-center border border-emerald-300 rounded bg-white"
+                                  title="Edit stock"
+                                />
+                                <span className="text-[10px] text-emerald-800">{row.unit}</span>
+                              </div>
+                            </td>
+                            <td className="p-2 text-stone-500">{row.gst}%</td>
+                            <td className="p-2 text-stone-500">{row.date}</td>
+                            <td className="p-2 text-stone-500">{row.customTotal ? `₹${row.customTotal}` : '-'}</td>
+                            <td className="p-2 text-stone-700 font-medium">{row.unit}</td>
+                            <td className="p-2 text-amber-700 font-medium">{row.discount ? `${row.discount}%` : '-'}</td>
+                            <td className="p-2 text-stone-400 truncate max-w-[80px]">{row.youtube || '-'}</td>
+                            <td className="p-2 text-stone-400 truncate max-w-[80px]">{row.instagram || '-'}</td>
+                            <td className="p-2 text-stone-400 truncate max-w-[80px]">{row.facebook || '-'}</td>
+                            <td className="p-2 text-stone-600 font-medium">{row.offers || '-'}</td>
+                            <td className="p-2">
+                              {row.imageUrl ? (
+                                <div className="flex items-center gap-1.5">
+                                  <img
+                                    src={row.imageUrl}
+                                    alt={row.itemName}
+                                    className="w-8 h-8 rounded-lg object-cover border border-stone-200"
+                                  />
+                                  <a
+                                    href={row.imageUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] text-blue-600 hover:underline max-w-[60px] truncate"
+                                  >
+                                    View
+                                  </a>
+                                </div>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                            <td className="p-2 font-bold text-emerald-700">
+                              {row.deliveryValue !== undefined ? `₹${row.deliveryValue}` : '-'}
+                            </td>
+                            <td className="p-2 text-stone-600 text-[11px] max-w-[140px] truncate" title={row.deliveryDescription}>
+                              {row.deliveryDescription || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* TAB 1: LIVE ORDERS */}
           {activeTab === 'orders' && (
             <div className="space-y-3">
@@ -566,300 +790,6 @@ export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
             </form>
           )}
 
-          {/* TAB: GOOGLE SHEETS INVENTORY (SHEET 2 · COLUMN E) */}
-          {activeTab === 'sheets' && (
-            <div className="space-y-4 text-xs">
-              {/* Top Spreadsheet Information Card */}
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-900 via-teal-900 to-stone-900 text-white shadow-sm space-y-3">
-                <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-emerald-300">
-                      <FileSpreadsheet className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-bold text-white">amantrade Catalog Sheet</h4>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 text-[10px] font-mono font-bold">
-                          {AMAN_TRADE_SHEET_NAME}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-200 text-[10px] font-mono font-bold">
-                          Stock: {DEFAULT_SHEET_NAME}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-emerald-200/90 mt-0.5">
-                        Menu & items fetch from <strong>amantrade</strong> sheet. Stock auto-deducts from <strong>Sheet 2 (Column E)</strong>.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={AMAN_TRADE_SPREADSHEET_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-stone-900 font-bold text-xs hover:bg-stone-100 transition-colors shadow-xs shrink-0"
-                      title="Open amantrade Catalog Spreadsheet"
-                    >
-                      <span>Open amantrade</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                    <a
-                      href={STOCK_SPREADSHEET_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 text-white font-bold text-xs hover:bg-emerald-600 transition-colors shadow-xs shrink-0"
-                      title="Open Sheet2 Stock Spreadsheet"
-                    >
-                      <span>Open Sheet 2</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                </div>
-
-                {/* Google Auth Status Bar */}
-                <div className="pt-2.5 border-t border-white/15 flex items-center justify-between flex-wrap gap-2 text-[11px]">
-                  {googleUser ? (
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span className="text-emerald-100">
-                        Connected: <strong>{googleUser.email}</strong>
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-amber-200">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-300" />
-                      <span>Google Account not connected yet</span>
-                    </div>
-                  )}
-
-                  {googleUser ? (
-                    <button
-                      onClick={onGoogleSignOut}
-                      className="flex items-center gap-1 text-red-300 hover:text-red-200 underline font-semibold cursor-pointer"
-                    >
-                      <LogOut className="w-3 h-3" />
-                      <span>Disconnect</span>
-                    </button>
-                  ) : (
-                    <GoogleSignInButton
-                      onClick={onGoogleSignIn}
-                      isLoading={isGoogleLoading}
-                      label="Connect Google Sheet"
-                      className="py-1 px-3"
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Sync Feedback Alert */}
-              {syncFeedback && (
-                <div
-                  className={`p-3 rounded-2xl flex items-start gap-2.5 text-xs ${
-                    syncFeedback.type === 'success'
-                      ? 'bg-emerald-50 border border-emerald-300 text-emerald-900'
-                      : 'bg-red-50 border border-red-300 text-red-900'
-                  }`}
-                >
-                  {syncFeedback.type === 'success' ? (
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                  )}
-                  <div className="font-medium leading-relaxed">{syncFeedback.message}</div>
-                </div>
-              )}
-
-              {/* Google Apps Script Integration Card */}
-              <div className="bg-emerald-950/90 text-white p-4 rounded-2xl border border-emerald-700/50 shadow-sm space-y-2.5">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <h5 className="font-bold text-xs uppercase tracking-wider text-emerald-200">
-                      Google Apps Script Web App (Live Link)
-                    </h5>
-                  </div>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-800 text-emerald-100 border border-emerald-600">
-                    Active & Connected
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={appsScriptUrlInput}
-                    onChange={(e) => {
-                      setAppsScriptUrlInput(e.target.value);
-                      setAppsScriptUrl(e.target.value);
-                    }}
-                    placeholder="https://script.google.com/macros/s/.../exec"
-                    className="flex-1 px-3 py-1.5 text-xs bg-black/40 border border-emerald-600/40 rounded-xl font-mono text-emerald-100 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                  />
-                  {onSyncAppsScript && (
-                    <button
-                      onClick={onSyncAppsScript}
-                      disabled={isFetchingMenu}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isFetchingMenu ? 'animate-spin' : ''}`} />
-                      <span>Sync Live</span>
-                    </button>
-                  )}
-                </div>
-
-                <p className="text-[11px] text-emerald-200/80 leading-relaxed">
-                  ⚡ Customers automatically load live menu items & stock from this script. Every order auto-deducts stock by matching the <strong>item name</strong> on your Google Sheet.
-                </p>
-              </div>
-
-              {/* Sync Actions Bar */}
-              <div className="space-y-2 bg-white p-3 rounded-2xl border border-stone-200 shadow-2xs">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={onFetchAmanTradersMenu}
-                      disabled={isFetchingMenu}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isFetchingMenu ? 'animate-spin' : ''}`} />
-                      <span>{isFetchingMenu ? 'Fetching...' : 'Fetch Menu from "amantrade" Sheet'}</span>
-                    </button>
-
-                    <button
-                      onClick={onSyncSheetStock}
-                      disabled={isSyncingSheets || !googleUser}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSheets ? 'animate-spin' : ''}`} />
-                      <span>{isSyncingSheets ? 'Syncing...' : 'Sync Stock from Sheet2'}</span>
-                    </button>
-
-                    <button
-                      onClick={onInitializeSheet2}
-                      disabled={isSyncingSheets || !googleUser}
-                      className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs border border-stone-200 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Syncs menu items into Sheet2 with Column E stock"
-                    >
-                      Setup Sheet2 Format
-                    </button>
-                  </div>
-
-                  <div className="text-[11px] text-stone-500 font-medium">
-                    {lastSyncTime ? `Last synced: ${lastSyncTime}` : 'Target: amantrade & Sheet2'}
-                  </div>
-                </div>
-
-                <div className="pt-2.5 border-t border-stone-100 flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-stone-700 font-bold text-xs">
-                    <span>📱 WhatsApp Order Receiving Number:</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={whatsappNumber}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^0-9]/g, '');
-                        setWhatsappNumber(val);
-                        localStorage.setItem('aman_traders_whatsapp_number', val);
-                      }}
-                      placeholder="e.g. 919876543210"
-                      className="px-2.5 py-1 text-xs border border-stone-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36 bg-stone-50"
-                    />
-                    <span className="text-[10px] text-stone-400 font-medium">(With 91 code)</span>
-                  </div>
-                </div>
-
-                <p className="text-[10px] text-stone-500">
-                  Tip: When a customer clicks <strong>"Order via WhatsApp"</strong>, stock is automatically deducted from <strong>Sheet 2 (Column E)</strong> by matching item name, and the order details are sent to this WhatsApp number.
-                </p>
-              </div>
-
-              {/* Inventory Table */}
-              <div className="bg-white rounded-2xl border border-stone-200 shadow-2xs overflow-hidden">
-                <div className="p-3 bg-stone-100 border-b border-stone-200 flex items-center justify-between">
-                  <span className="font-bold text-stone-800 uppercase tracking-wider text-[10px]">
-                    Sheet 2 Live Stock Rows ({sheetRows.length})
-                  </span>
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    Column E = Live Stock
-                  </span>
-                </div>
-
-                {sheetRows.length === 0 ? (
-                  <div className="p-8 text-center space-y-3">
-                    <FileSpreadsheet className="w-10 h-10 text-stone-300 mx-auto" />
-                    <div>
-                      <h5 className="font-bold text-stone-800 text-sm">Sheet 2 not loaded yet</h5>
-                      <p className="text-xs text-stone-500 max-w-sm mx-auto mt-1">
-                        Connect your Google account and click <strong>"Sync Stock from Sheet 2"</strong> or <strong>"Setup Sheet 2 Format"</strong> to load your catalog rows.
-                      </p>
-                    </div>
-                    {googleUser && (
-                      <button
-                        onClick={onInitializeSheet2}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer"
-                      >
-                        Populate Sheet 2 with Menu
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto max-h-80">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-stone-50 text-stone-500 border-b border-stone-200 text-[10px] uppercase font-bold sticky top-0">
-                        <tr>
-                          <th className="p-2.5">Row</th>
-                          <th className="p-2.5">Item Name</th>
-                          <th className="p-2.5">Category</th>
-                          <th className="p-2.5 text-right">Price</th>
-                          <th className="p-2.5 text-center font-extrabold text-emerald-800">
-                            Col E (Stock)
-                          </th>
-                          <th className="p-2.5">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-stone-100 text-stone-700">
-                        {sheetRows.map((row) => (
-                          <tr key={row.rowIndex} className="hover:bg-stone-50 transition-colors">
-                            <td className="p-2.5 font-mono text-stone-400 text-[11px]">
-                              {row.rowIndex}
-                            </td>
-                            <td className="p-2.5 font-bold text-stone-900">
-                              {row.name || row.id}
-                            </td>
-                            <td className="p-2.5 text-stone-500 capitalize">
-                              {row.category}
-                            </td>
-                            <td className="p-2.5 text-right font-medium">
-                              ₹{row.price}
-                            </td>
-                            <td className="p-2.5 text-center">
-                              <span
-                                className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-black ${
-                                  row.stock === 0
-                                    ? 'bg-red-100 text-red-700 border border-red-200'
-                                    : row.stock <= 5
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                }`}
-                              >
-                                {row.stock}
-                              </span>
-                            </td>
-                            <td className="p-2.5">
-                              <span className="text-[11px] text-stone-600 font-medium">
-                                {row.status || (row.stock > 0 ? 'In Stock' : 'Out of Stock')}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* TAB 4: STORE ANALYTICS */}
           {activeTab === 'stats' && (
             <div className="space-y-4">
@@ -878,17 +808,24 @@ export const OwnerPortalModal: React.FC<OwnerPortalModalProps> = ({
               </div>
 
               <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-2">
-                <h5 className="text-xs font-bold text-stone-800 uppercase tracking-wider">Aman Traders Menu Catalog</h5>
+                <h5 className="text-xs font-bold text-stone-800 uppercase tracking-wider">Top Selling Dishes</h5>
                 <div className="space-y-2 text-xs">
-                  {dishes.map((dish, idx) => (
-                    <div key={dish.id} className="flex justify-between items-center py-1 border-b border-stone-100 last:border-b-0">
-                      <span className="font-bold text-stone-800">{idx + 1}. {dish.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-semibold text-stone-400">{dish.category}</span>
-                        <span className="font-bold text-emerald-700">₹{dish.price}</span>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="flex justify-between items-center py-1">
+                    <span className="font-bold text-stone-800">1. Kheer (खीर)</span>
+                    <span className="text-stone-500">142 orders</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="font-bold text-stone-800">2. Gulab Jamun (गुलाब जामुन)</span>
+                    <span className="text-stone-500">118 orders</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="font-bold text-stone-800">3. Veg Hakka Chowmein</span>
+                    <span className="text-stone-500">94 orders</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="font-bold text-stone-800">4. Desi Ghee Samosa</span>
+                    <span className="text-stone-500">89 orders</span>
+                  </div>
                 </div>
               </div>
             </div>

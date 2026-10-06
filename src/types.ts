@@ -18,8 +18,6 @@ export interface Dish {
   hindiName: string;
   category: CategoryId;
   price: number;
-  halfPrice?: number;
-  fullPrice?: number;
   originalPrice?: number;
   discountBadge?: string; // e.g. "50% OFF", "BUY 1 GET 1 FREE", "20% OFF"
   weightOrUnit: string; // e.g. "190 gram", "per piece", "300 milligram", "250 gram"
@@ -33,15 +31,55 @@ export interface Dish {
   imageUrl?: string;
   videoUrl?: string; // YouTube video ID or video preview
   videoTitle?: string;
-  reelUrl?: string; // Instagram / Reel (from Sheet Column K, L, or M)
-  facebookUrl?: string; // Facebook (from Sheet Column K, L, or M)
-  youtubeUrl?: string; // YouTube (from Sheet Column K, L, or M)
   byOwnerSpecial?: boolean;
   visualTheme: {
     bgGradient: string;
     foodType: 'kheer' | 'gulab_jamun' | 'malai_roll' | 'rasgulla' | 'kaju_katli' | 'jalebi' | 'samosa' | 'chaat' | 'chowmein' | 'momos' | 'pizza' | 'burger' | 'pastry' | 'lassi' | 'colddrink' | 'chocolate' | 'generic';
     accentColor: string;
   };
+  // Connected Google Sheet Columns (1CRsQmQNNOUj7bbyRJYLhcUpxi8LyfQ0jOTVZG8a_x9w)
+  billNo?: string;        // Col A: bill_no
+  stock?: number;         // Col E: stock
+  gst?: number;           // Col F: gst
+  dateAdded?: string;     // Col G: Date
+  customTotal?: number;   // Col H: coustomtotal
+  unit?: string;          // Col I: Unit
+  discountVal?: number | string; // Col J: Discount
+  youtubeUrl?: string;    // Col K: youtube
+  instagramUrl?: string;  // Col L: instagram
+  facebookUrl?: string;   // Col M: facebook
+  offersText?: string;    // Col N: offers
+  deliveryValue?: number; // Col P: Delivery value
+  deliveryDescription?: string; // Col Q: Delivery discription
+  isFromGoogleSheet?: boolean;
+  sheetRowIndex?: number;
+}
+
+export interface SheetRowItem {
+  billNo: string;        // Col A: bill_no
+  itemName: string;      // Col B: item_name
+  price: number;         // Col C: price
+  qty: number;           // Col D: qty
+  stock: number;         // Col E: stock
+  gst: number;           // Col F: gst
+  date: string;          // Col G: Date
+  customTotal?: number;  // Col H: coustomtotal
+  unit: string;          // Col I: Unit
+  discount?: string;     // Col J: Discount
+  youtube?: string;      // Col K: youtube
+  instagram?: string;    // Col L: instagram
+  facebook?: string;     // Col M: facebook
+  offers?: string;       // Col N: offers
+  imageUrl?: string;     // Col O: imageurl
+  deliveryValue?: number; // Col P: Delivery value
+  deliveryDescription?: string; // Col Q: Delivery discription
+  rowIndex: number;
+}
+
+export interface DeliverySettings {
+  charge: number;
+  description: string;
+  freeThreshold?: number;
 }
 
 export interface CartItem {
@@ -81,8 +119,9 @@ export interface UserProfile {
   id: string;
   name: string;
   phone: string;
-  email: string;
-  address: string;
-  password: string; // 5-digit password
-  registeredAt: string;
+  email?: string;
+  address?: string;
+  password?: string;
+  createdAt?: string;
 }
+

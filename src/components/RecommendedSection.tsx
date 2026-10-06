@@ -20,8 +20,6 @@ export const RecommendedSection: React.FC<RecommendedSectionProps> = ({
 }) => {
   const recommendedList = dishes.filter((d) => d.isRecommended);
 
-  if (recommendedList.length === 0) return null;
-
   return (
     <div className="py-3">
       {/* Header */}
@@ -38,7 +36,7 @@ export const RecommendedSection: React.FC<RecommendedSectionProps> = ({
           </span>
         </div>
         <p className="text-[11px] text-stone-500 font-medium mt-0.5">
-          Popular items from Aman Traders live catalog
+          Popular traditional sweets and special chef recipes
         </p>
       </div>
 
@@ -53,14 +51,19 @@ export const RecommendedSection: React.FC<RecommendedSectionProps> = ({
               className="w-44 sm:w-48 shrink-0 bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden flex flex-col justify-between"
             >
               {/* Image Container with Badges */}
-              <div className="relative aspect-4/3 w-full bg-stone-100 overflow-hidden">
-                <AppImage
-                  src={dish.imageUrl}
-                  alt={dish.name}
-                  fallbackFoodType={dish.visualTheme.foodType}
-                  className="w-full h-full"
-                  imgClassName="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                />
+              <div className="relative aspect-4/3 w-full bg-emerald-50/70 border-b border-stone-100 flex items-center justify-center overflow-hidden">
+                {dish.imageUrl ? (
+                  <img
+                    src={dish.imageUrl}
+                    alt={dish.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-emerald-700">
+                    <span className="text-xs font-mono font-bold">#{dish.billNo || 'Item'}</span>
+                    <span className="text-[10px] text-stone-500">{dish.weightOrUnit}</span>
+                  </div>
+                )}
 
                 {/* Discount Tag */}
                 {dish.discountBadge && (

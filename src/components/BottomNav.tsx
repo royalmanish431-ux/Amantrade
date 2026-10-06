@@ -18,7 +18,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
-      <div className="max-w-md mx-auto grid grid-cols-3 items-center h-16 px-4">
+      <div className="w-full max-w-md md:max-w-xl mx-auto grid grid-cols-3 items-center h-16 px-4">
         {/* Home Tab */}
         <button
           onClick={() => onSelectTab('home')}

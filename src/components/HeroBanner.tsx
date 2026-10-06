@@ -3,8 +3,8 @@ import { Bike, Sparkles } from 'lucide-react';
 
 export const HeroBanner: React.FC = () => {
   return (
-    <div className="w-full">
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#ea580c] via-[#f97316] to-[#dc2626] px-4 sm:px-6 py-4 sm:py-5 text-white shadow-xs">
+    <div className="px-4 pt-3.5 pb-2">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#ea580c] via-[#f97316] to-[#dc2626] p-4 text-white shadow-md">
         {/* Subtle decorative background sweets silhouette / mandala motif */}
         <div className="absolute right-0 top-0 bottom-0 w-1/2 opacity-15 pointer-events-none flex items-center justify-center">
           <svg className="w-48 h-48 -mr-10 text-white" viewBox="0 0 100 100" fill="currentColor">
@@ -26,12 +26,12 @@ export const HeroBanner: React.FC = () => {
 
         {/* Main Heading */}
         <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-1.5 drop-shadow-sm">
-          FREE DELIVERY <span className="text-amber-200">above ₹199</span>
+          AMAN TRADERS <span className="text-amber-200">LIVE STORE</span>
         </h2>
 
         {/* Subtitle */}
         <p className="text-xs sm:text-sm text-amber-50/95 font-medium leading-relaxed max-w-sm mb-3.5">
-          Fresh confectionery and bakery delights from Aman Traders delivered straight to your door!
+          Live catalog & stock synced directly from Google Sheet with 1-click WhatsApp delivery!
         </p>
 
         {/* Feature Badges */}

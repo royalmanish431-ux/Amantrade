@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Clock, Bike, Phone, MessageSquare, X, ChefHat, Sparkles } from 'lucide-react';
 import { Order } from '../types';
+import { triggerAppsScriptOrder, getFormattedCurrentDate } from '../services/appsScriptService';
 
 interface OrderTrackingModalProps {
   order: Order | null;
@@ -37,14 +38,34 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   if (!isOpen || !order) return null;
 
   const handleWhatsAppShare = () => {
+    const todayStr = getFormattedCurrentDate();
+
+    // Trigger Apps Script to ensure Column N (Date) & Column O (Amount) are recorded
+    triggerAppsScriptOrder({
+      date: todayStr,
+      amount: order.grandTotal,
+      total_amount: order.grandTotal,
+      order_id: order.id,
+      customer_name: order.customerName,
+      customer_phone: order.customerPhone,
+      delivery_address: order.deliveryAddress,
+      items: order.items.map((i) => ({
+        name: i.dish.name,
+        item_name: i.dish.name,
+        qty: i.quantity,
+      })),
+    }).catch((err) => console.debug('Apps Script share trigger notice:', err));
+
     const itemsSummary = order.items
       .map((i) => `• ${i.dish.name} (${i.dish.hindiName}) x${i.quantity} = ₹${i.dish.price * i.quantity}`)
       .join('\n');
 
-    const message = `Namaste Aman Traders! 🙏\nI have placed order *#${order.id}*.\n\n*Order Items:*\n${itemsSummary}\n\n*Total Amount:* ₹${order.grandTotal}\n*Delivery Address:* ${order.deliveryAddress}\n*Payment:* ${order.paymentMethod.toUpperCase()}\n\nPlease confirm & prepare fresh! Thank you!`;
+    const message = `Namaste Aman Traders! 🙏\nI have placed order *#${order.id}* on *${todayStr}*.\n\n*Order Items:*\n${itemsSummary}\n\n*Total Amount:* ₹${order.grandTotal}\n*Delivery Address:* ${order.deliveryAddress}\n*Payment:* ${order.paymentMethod.toUpperCase()}\n\nPlease confirm & prepare fresh! Thank you!`;
 
+    const whatsappNumber =
+      localStorage.getItem('aman_traders_whatsapp_number') || '919876543210';
     const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/919876543210?text=${encoded}`, '_blank');
+    window.open(`https://wa.me/${whatsappNumber}?text=${encoded}`, '_blank');
   };
 
   const steps = [
